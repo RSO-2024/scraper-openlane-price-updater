@@ -28,12 +28,15 @@ const loadRoutes = (dir: string) => {
 
         if (stat.isDirectory()) {
             loadRoutes(filePath);
-        } else if (file.endsWith('.ts')) {
+        } else if (file.endsWith('.ts') || file.endsWith('.js')) {
             const route = require(filePath).default;
             app.use('/api', route);
         }
     });
 };
+
+loadRoutes(path.join(__dirname, 'routes'));
+
 
 loadRoutes(path.join(__dirname, 'routes'));
 
