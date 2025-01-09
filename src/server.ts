@@ -5,6 +5,7 @@ import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import path from 'path';
 dotenv.config();
+import axios from 'axios';
 
 // Create a single supabase client for interacting with your database
 const supabase = createClient(process.env.SUPABASEURL!, process.env.SUPABASEKEY!)
@@ -131,6 +132,18 @@ async function updatePricesForId(id: number) {
     for (const cena of cene){
           const dateParts = cena.split('\n')[1].split(' ');
           const date = new Date(`${dateParts[0].split('/').reverse().join('-')}T${dateParts[1]}`);
+          const { data: existingData, error: existingError } = await supabase
+            .from('auction_prices')
+            .select('*')
+            .eq('auction_id', id)
+            .eq('price', cena.split('\n')[2].replace(/\D/g, ''))
+            .eq('date', date.toISOString())
+            .eq('ponudnik', cena.split('\n')[0]);
+
+          if (existingData && existingData.length > 0) {
+            console.log('Entry already exists, skipping insert.');
+            continue; // Skip this entry if it already exists
+          }
           cene_insert.push({
             auction_id: id,
             price: cena.split('\n')[2].replace(/\D/g, ''), // Remove all non-numeric characters
@@ -140,12 +153,39 @@ async function updatePricesForId(id: number) {
     }
     console.log(cene_insert)
       //https://www.openlane.eu/sl/carv6/transportoptions?auctionId=8787142
-      const { data, error } = await supabase.from('auction_prices').insert(cene_insert).select();
-      if (error) {
-        console.error('Error inserting data:', error);
-      } else {
-        console.log('Data inserted successfully:', data);
+      if(cene_insert.length > 0){
+        const { data, error } = await supabase.from('auction_prices').insert(cene_insert).select();
+        if (error) {
+          console.error('Error inserting data:', error);
+          
+        } else {
+          console.log('Data inserted successfully:', data);
+          let axdata = JSON.stringify({
+            "listing_id": id,
+            "api_key": process.env.API_KEY
+          });
+          
+          let config = {
+            method: 'post',
+            maxBodyLength: Infinity,
+            url: 'https://wunebpnwieaadhsethca.supabase.co/functions/v1/alert-user-on-price-change',
+            headers: { 
+              'Content-Type': 'application/json'
+            },
+            data : axdata
+          };
+          
+          axios.request(config)
+          .then((response) => {
+            console.log(JSON.stringify(response.data));
+          })
+          .catch((error) => {
+            console.log(error);
+          });
+        }
+        
       }
+
 
     
 
@@ -188,3 +228,6 @@ server.bindAsync(`0.0.0.0:${PORT}`, grpc.ServerCredentials.createInsecure(), (er
   }
   console.log(`Server running at http://0.0.0.0:${port}`);
 });
+
+
+//updatePricesForId(73);
