@@ -7,6 +7,11 @@ import path from 'path';
 dotenv.config();
 import axios from 'axios';
 
+if(!process.env.SUPABASEURL || !process.env.SUPABASEKEY){
+  console.error('Please set environment variables');
+  while(1){}
+}
+
 // Create a single supabase client for interacting with your database
 const supabase = createClient(process.env.SUPABASEURL!, process.env.SUPABASEKEY!)
 
